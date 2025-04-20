@@ -1,14 +1,13 @@
 import Head from 'next/head';
 import { useEffect, useState } from 'react';
-import Image from 'next/image';
 
 // Types for Hightouch Events
 declare global {
   interface Window {
     htevents: {
-      identify: (id: string, traits: any) => void;
-      track: (event: string, properties: any) => void;
-      load: (writeKey: string, options: any) => void;
+      identify: (id: string, traits: Record<string, unknown>) => void;
+      track: (event: string, properties: Record<string, unknown>) => void;
+      load: (writeKey: string, options: Record<string, unknown>) => void;
     }
   }
 }
