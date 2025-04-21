@@ -157,6 +157,7 @@ export default function Home() {
   const [writeKey, setWriteKey] = useState(DEFAULT_WRITE_KEY);
   const [eventsPerMinute, setEventsPerMinute] = useState(60);
   const [selectedIndustry, setSelectedIndustry] = useState<Industry>('ecommerce');
+  const [totalEvents, setTotalEvents] = useState(0);
 
   // Function to initialize Hightouch Events SDK
   const initializeHightouch = (key: string) => {
@@ -233,36 +234,39 @@ export default function Home() {
     return { ...baseData, ...industrySpecificData[industry] };
   };
 
+  // Function to generate random event data based on industry
+  const generateEventData = (industry: Industry) => {
+    const eventConfig = INDUSTRY_EVENTS[industry];
+    const eventName = eventConfig.events[Math.floor(Math.random() * eventConfig.events.length)];
+    const data = {
+      event_name: eventName,
+      ...eventConfig.properties()
+    };
+    return data;
+  };
+
   // Function to start event generation with given frequency
   const startEventGeneration = (frequency: number) => {
-    const intervalMs = Math.round(60000 / frequency);
-    const newIntervalId = setInterval(() => {
-      const eventType: EventType = Math.random() > 0.3 ? 'track' : 'identify';
+    const interval = (60 * 1000) / frequency;
+    const id = setInterval(() => {
+      const eventType: EventType = Math.random() > 0.2 ? 'track' : 'identify';
       const timestamp = new Date().toISOString();
-      let data;
-      let eventName;
+      const data = eventType === 'identify'
+        ? generateUserData(selectedIndustry)
+        : generateEventData(selectedIndustry);
 
-      if (eventType === 'identify') {
-        data = generateUserData(selectedIndustry);
+      if (eventType === 'identify' && 'id' in data) {
         window.htevents?.identify(data.id, data);
-      } else {
-        const industryConfig = INDUSTRY_EVENTS[selectedIndustry];
-        eventName = industryConfig.events[Math.floor(Math.random() * industryConfig.events.length)];
-        data = {
-          event_name: eventName,
-          ...industryConfig.properties()
-        };
-        window.htevents?.track(eventName, data);
+      } else if (eventType === 'track' && 'event_name' in data) {
+        window.htevents?.track(data.event_name, data);
       }
 
-      setEvents(prev => [{
-        type: eventType,
-        timestamp,
-        data
-      }, ...prev].slice(0, 100));
-    }, intervalMs);
+      const newEvent: Event = { type: eventType, timestamp, data };
+      setEvents(prevEvents => [newEvent, ...prevEvents].slice(0, 100));
+      setTotalEvents(prev => prev + 1);
+    }, interval);
 
-    setIntervalId(newIntervalId);
+    setIntervalId(id);
   };
 
   // Function to handle start/stop generation
@@ -451,6 +455,14 @@ export default function Home() {
                       <div className="w-11 h-6 bg-gray-500/30 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#00A971]"></div>
                       <span className="ml-3 text-sm font-medium text-[#1C2B33]">Enable Event Stream</span>
                     </label>
+                  </div>
+
+                  {/* Total Events Counter */}
+                  <div className="pt-4 border-t border-gray-200">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-[#1C2B33]">Total Events Generated</span>
+                      <span className="text-lg font-semibold text-[#00A971]">{totalEvents}</span>
+                    </div>
                   </div>
                 </div>
               </div>
