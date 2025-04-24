@@ -23,6 +23,7 @@ type Event = {
 type Industry = 'ecommerce' | 'media' | 'travel' | 'saas';
 
 const DEFAULT_WRITE_KEY = '418b97fea8de07e7e8b5073fe28fba701430402d89c07760f62b32f95dffe69e';
+const DEFAULT_API_HOST = 'us-east-1.hightouch-events.com';
 const DEMO_SOURCE_URL = 'https://app.hightouch.com/ecommerce-pristine-demo/events/sources/83c7ebcd-9c0f-42b0-84b2-541e1cd64af4/debugger';
 
 const INDUSTRY_EVENTS = {
@@ -155,23 +156,25 @@ export default function Home() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [intervalId, setIntervalId] = useState<NodeJS.Timeout | null>(null);
   const [writeKey, setWriteKey] = useState(DEFAULT_WRITE_KEY);
+  const [apiHost, setApiHost] = useState(DEFAULT_API_HOST);
   const [eventsPerMinute, setEventsPerMinute] = useState(60);
   const [selectedIndustry, setSelectedIndustry] = useState<Industry>('ecommerce');
   const [totalEvents, setTotalEvents] = useState(0);
 
   // Function to initialize Hightouch Events SDK
-  const initializeHightouch = (key: string) => {
+  const initializeHightouch = (key: string, host: string) => {
     const script = document.createElement('script');
-    script.innerHTML = `!function(){var e=window.htevents=window.htevents||[];if(!e.initialize)if(e.invoked)window.console&&console.error&&console.error("Hightouch snippet included twice.");else{e.invoked=!0,e.methods=["trackSubmit","trackClick","trackLink","trackForm","pageview","identify","reset","group","track","ready","alias","debug","page","once","off","on","addSourceMiddleware","addIntegrationMiddleware","setAnonymousId","addDestinationMiddleware"],e.factory=function(t){return function(){var n=Array.prototype.slice.call(arguments);return n.unshift(t),e.push(n),e}};for(var t=0;t<e.methods.length;t++){var n=e.methods[t];e[n]=e.factory(n)}e.load=function(t,n){var o=document.createElement("script");o.type="text/javascript",o.async=!0,o.src="https://cdn.hightouch-events.com/browser/release/v1-latest/events.min.js";var r=document.getElementsByTagName("script")[0];r.parentNode.insertBefore(o,r),e._loadOptions=n,e._writeKey=t},e.SNIPPET_VERSION="0.0.1", e.load('${key}',{apiHost:'us-east-1.hightouch-events.com'}), e.page()}}();`;
+    script.innerHTML = `!function(){var e=window.htevents=window.htevents||[];if(!e.initialize)if(e.invoked)window.console&&console.error&&console.error("Hightouch snippet included twice.");else{e.invoked=!0,e.methods=["trackSubmit","trackClick","trackLink","trackForm","pageview","identify","reset","group","track","ready","alias","debug","page","once","off","on","addSourceMiddleware","addIntegrationMiddleware","setAnonymousId","addDestinationMiddleware"],e.factory=function(t){return function(){var n=Array.prototype.slice.call(arguments);return n.unshift(t),e.push(n),e}};for(var t=0;t<e.methods.length;t++){var n=e.methods[t];e[n]=e.factory(n)}e.load=function(t,n){var o=document.createElement("script");o.type="text/javascript",o.async=!0,o.src="https://cdn.hightouch-events.com/browser/release/v1-latest/events.min.js";var r=document.getElementsByTagName("script")[0];r.parentNode.insertBefore(o,r),e._loadOptions=n,e._writeKey=t},e.SNIPPET_VERSION="0.0.1", e.load('${key}',{apiHost:'${host}'}), e.page()}}();`;
     document.head.appendChild(script);
   };
 
   useEffect(() => {
-    initializeHightouch(writeKey);
-  }, [writeKey]);
+    initializeHightouch(writeKey, apiHost);
+  }, [writeKey, apiHost]);
 
   // Function to handle write key changes
   const handleWriteKeyChange = (newKey: string) => {
+    // Stop event generation
     if (isGenerating) {
       if (intervalId) {
         clearInterval(intervalId);
@@ -179,7 +182,49 @@ export default function Home() {
       }
       setIsGenerating(false);
     }
+
+    // Remove existing script and clear window.htevents
+    const existingScript = document.querySelector('script[src*="hightouch-events.com"]');
+    if (existingScript) {
+      existingScript.remove();
+    }
+    // @ts-ignore - We know this is safe as we're reinitializing the SDK
+    window.htevents = undefined;
+
+    // Update state
     setWriteKey(newKey);
+    
+    // Reinitialize with new key
+    initializeHightouch(newKey, apiHost);
+
+    // If we were generating events before, restart with the new key
+    if (isGenerating) {
+      // Small delay to ensure SDK is initialized
+      setTimeout(() => {
+        startEventGeneration(eventsPerMinute);
+      }, 100);
+    }
+  };
+
+  // Function to handle API host changes
+  const handleApiHostChange = (newHost: string) => {
+    if (isGenerating) {
+      if (intervalId) {
+        clearInterval(intervalId);
+        setIntervalId(null);
+      }
+      setIsGenerating(false);
+    }
+    setApiHost(newHost);
+    
+    // Remove existing script
+    const existingScript = document.querySelector('script[src*="hightouch-events.com"]');
+    if (existingScript) {
+      existingScript.remove();
+    }
+    
+    // Reinitialize with new host
+    initializeHightouch(writeKey, newHost);
   };
 
   // Function to handle events per minute changes
@@ -387,6 +432,40 @@ export default function Home() {
                       onChange={(e) => handleWriteKeyChange(e.target.value)}
                       className={inputClassName}
                       placeholder="Enter Write Key"
+                    />
+                  </div>
+
+                  {/* API Host Input */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <label htmlFor="apiHost" className="block text-sm font-medium text-[#1C2B33]">
+                        API Host
+                      </label>
+                      <div className="group relative">
+                        <button
+                          type="button"
+                          className="inline-flex items-center justify-center w-5 h-5 text-gray-400 hover:text-gray-500 transition-colors"
+                          aria-label="API Host Information"
+                        >
+                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                          </svg>
+                        </button>
+                        <div 
+                          className="absolute left-1/2 transform -translate-x-1/2 mt-2 w-72 px-3 py-2 bg-gray-900 text-xs leading-5 text-white rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible hover:opacity-100 hover:visible transition-all duration-200 z-10"
+                          role="tooltip"
+                        >
+                          The API host determines which region your events are sent to. Default is us-east-1.
+                        </div>
+                      </div>
+                    </div>
+                    <input
+                      id="apiHost"
+                      type="text"
+                      value={apiHost}
+                      onChange={(e) => handleApiHostChange(e.target.value)}
+                      className={inputClassName}
+                      placeholder="Enter API Host"
                     />
                   </div>
 
