@@ -160,6 +160,7 @@ export default function Home() {
   const [eventsPerMinute, setEventsPerMinute] = useState(60);
   const [selectedIndustry, setSelectedIndustry] = useState<Industry>('ecommerce');
   const [totalEvents, setTotalEvents] = useState(0);
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
 
   // Function to initialize Hightouch Events SDK
   const initializeHightouch = (key: string, host: string) => {
@@ -290,6 +291,21 @@ export default function Home() {
     return data;
   };
 
+  // Function to clear all events
+  const clearEvents = () => {
+    setEvents([]);
+  };
+
+  // Function to handle row click
+  const handleRowClick = (event: Event) => {
+    setSelectedEvent(event);
+  };
+
+  // Function to close modal
+  const closeModal = () => {
+    setSelectedEvent(null);
+  };
+
   // Function to start event generation with given frequency
   const startEventGeneration = (frequency: number) => {
     const interval = (60 * 1000) / frequency;
@@ -307,7 +323,7 @@ export default function Home() {
       }
 
       const newEvent: Event = { type: eventType, timestamp, data };
-      setEvents(prevEvents => [newEvent, ...prevEvents].slice(0, 100));
+      setEvents(prevEvents => [newEvent, ...prevEvents].slice(0, 1000)); // Limit to 1000 events
       setTotalEvents(prev => prev + 1);
     }, interval);
 
@@ -388,9 +404,9 @@ export default function Home() {
 
         {/* Main Content Area */}
         <main className="max-w-7xl mx-auto py-8 px-6">
-          <div className="space-y-6">
+          <div className="flex gap-6">
             {/* Configuration Section */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex-1">
               <div className="px-6 py-5">
                 <div className="space-y-6 max-w-md">
                   {/* Write Key Input */}
@@ -548,54 +564,62 @@ export default function Home() {
             </div>
 
             {/* Recent Events */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex-1">
               <div className="px-6 py-5">
                 <div className="space-y-4">
-                  <h3 className="text-xs font-semibold text-[#475569] uppercase tracking-wider">Recent Events</h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-semibold text-[#475569] uppercase tracking-wider">Recent Events</h3>
+                    <button
+                      onClick={clearEvents}
+                      className="text-xs font-medium text-[#475569] hover:text-[#1C2B33] transition-colors"
+                    >
+                      Clear Events
+                    </button>
+                  </div>
                   <div className="overflow-hidden rounded-lg border border-gray-200">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-[#475569] uppercase tracking-wider">Type</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-[#475569] uppercase tracking-wider">Event Name</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-[#475569] uppercase tracking-wider">Timestamp</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-[#475569] uppercase tracking-wider">Data</th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {events.map((event, index) => (
-                          <tr key={index} className="hover:bg-gray-50 transition-colors">
-                            <td className="px-4 py-3 whitespace-nowrap text-sm">
-                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                event.type === 'identify' 
-                                  ? 'bg-purple-100 text-purple-800' 
-                                  : 'bg-emerald-100 text-emerald-800'
-                              }`}>
-                                {event.type}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 whitespace-nowrap text-sm text-[#475569]">
-                              {event.type === 'identify' ? '-' : event.data.event_name}
-                            </td>
-                            <td className="px-4 py-3 whitespace-nowrap text-sm text-[#475569]">
-                              {new Date(event.timestamp).toLocaleTimeString()}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-[#475569]">
-                              <pre className="whitespace-pre-wrap font-mono bg-gray-50 p-2 rounded-md text-xs">
-                                {JSON.stringify(event.data, null, 2)}
-                              </pre>
-                            </td>
-                          </tr>
-                        ))}
-                        {events.length === 0 && (
+                    <div className="max-h-[600px] overflow-y-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50 sticky top-0">
                           <tr>
-                            <td colSpan={3} className="px-4 py-8 text-center text-sm text-[#475569]">
-                              No events generated yet. Enable Event Stream to begin.
-                            </td>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-[#475569] uppercase tracking-wider">Type</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-[#475569] uppercase tracking-wider">Event Name</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-[#475569] uppercase tracking-wider">Timestamp</th>
                           </tr>
-                        )}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {events.map((event, index) => (
+                            <tr 
+                              key={index} 
+                              className="hover:bg-gray-50 transition-colors cursor-pointer"
+                              onClick={() => handleRowClick(event)}
+                            >
+                              <td className="px-4 py-3 whitespace-nowrap text-sm">
+                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                  event.type === 'identify' 
+                                    ? 'bg-purple-100 text-purple-800' 
+                                    : 'bg-emerald-100 text-emerald-800'
+                                }`}>
+                                  {event.type}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-[#475569]">
+                                {event.type === 'identify' ? '-' : event.data.event_name}
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-[#475569]">
+                                {new Date(event.timestamp).toLocaleTimeString()}
+                              </td>
+                            </tr>
+                          ))}
+                          {events.length === 0 && (
+                            <tr>
+                              <td colSpan={3} className="px-4 py-8 text-center text-sm text-[#475569]">
+                                No events generated yet. Enable Event Stream to begin.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -603,6 +627,47 @@ export default function Home() {
           </div>
         </main>
       </div>
+
+      {/* Event Data Modal */}
+      {selectedEvent && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-medium text-[#1C2B33]">
+                  Event Details
+                </h3>
+                <button
+                  onClick={closeModal}
+                  className="text-gray-400 hover:text-gray-500"
+                >
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div className="px-6 py-4">
+              <div className="space-y-4">
+                <div>
+                  <h4 className="text-sm font-medium text-[#475569]">Type</h4>
+                  <p className="mt-1 text-sm text-[#1C2B33]">{selectedEvent.type}</p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium text-[#475569]">Timestamp</h4>
+                  <p className="mt-1 text-sm text-[#1C2B33]">{new Date(selectedEvent.timestamp).toLocaleString()}</p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium text-[#475569]">Data</h4>
+                  <pre className="mt-1 p-4 bg-gray-50 rounded-md overflow-x-auto text-sm font-mono">
+                    {JSON.stringify(selectedEvent.data, null, 2)}
+                  </pre>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
